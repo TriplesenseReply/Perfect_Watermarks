@@ -146,15 +146,25 @@ class Varien_Image_Adapter_Imagemagic extends Varien_Image_Adapter_Abstract
         ) {
             $composite = new Imagick();
             $color = $this->_backgroundColor;
-            if ($color
-                && is_array($color)
-                && count($color) == 3
-            ) {
-                $bgColor = new ImagickPixel(
-                    'rgb(' . implode(',', $color) . ')'
-                );
+
+            if ($color && is_array($color)) {
+                if (count($color) == 3) {
+                    $bgColor = new ImagickPixel(
+                        'rgb(' . implode(',', $color) . ')'
+                    );
+                }
+
+                if (count($color) == 4) {
+                    $bgColor = new ImagickPixel(
+                        'rgba(' . implode(',', $color) . ')'
+                    );
+                }
             } else {
-                $bgColor = new ImagickPixel('white');
+                if ($this->_keepTransparency) {
+                    $bgColor = new ImagickPixel('rgba(0,0,0,0)');
+                } else {
+                    $bgColor = new ImagickPixel('white');
+                }
             }
 
             /**
@@ -185,6 +195,22 @@ class Varien_Image_Adapter_Imagemagic extends Varien_Image_Adapter_Abstract
                 $imagick->profileImage('icc', $icc_rgb);
                 unset($icc_rgb);
                 $imagick->setimagecolorspace(Imagick::COLORSPACE_SRGB);
+            }
+
+            /**
+             * this is needed if the file is a PNG in RGB mode and contains only
+             * grayscale colors. in that case imagemagick would convert it
+             * to grayscale mode and some of the images might get darker as they
+             * really are
+             *
+             * (maybe only in imagemagick 6.7.7 - ubuntu trusty default)
+             *
+             * @see http://www.imagemagick.org/Usage/formats/#png_write
+             */
+            if ($this->_fileMimeType == image_type_to_mime_type(
+                IMAGETYPE_PNG
+            )) {
+                $composite->setOption('png:color-type', 6);
             }
 
             $composite->setimagecolorspace($imagick->getimagecolorspace());
